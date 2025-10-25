@@ -1,94 +1,65 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import VideoCard from '@/components/VideoCard';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
-const mockVideos = [
-  {
-    id: '1',
-    title: 'Как создать свой YouTube канал в 2024 году',
-    channel: 'Tech Channel',
-    channelAvatar: 'https://api.dicebear.com/7.x/initials/svg?seed=TC',
-    views: '1.2M просмотров',
-    timestamp: '2 дня назад',
-    thumbnail: 'https://images.unsplash.com/photo-1611162617474-5b21e879e113?w=400',
-    duration: '12:34',
-  },
-  {
-    id: '2',
-    title: 'Топ 10 приложений для видеомонтажа',
-    channel: 'Digital Creator',
-    channelAvatar: 'https://api.dicebear.com/7.x/initials/svg?seed=DC',
-    views: '856K просмотров',
-    timestamp: '1 неделю назад',
-    thumbnail: 'https://images.unsplash.com/photo-1574717024653-61fd2cf4d44d?w=400',
-    duration: '8:45',
-  },
-  {
-    id: '3',
-    title: 'Полный гайд по стримингу на платформах',
-    channel: 'Stream Master',
-    channelAvatar: 'https://api.dicebear.com/7.x/initials/svg?seed=SM',
-    views: '2.1M просмотров',
-    timestamp: '3 дня назад',
-    thumbnail: 'https://images.unsplash.com/photo-1614680376593-902f74cf0d41?w=400',
-    duration: '15:22',
-  },
-  {
-    id: '4',
-    title: 'Секреты успешного видеоблога',
-    channel: 'Content King',
-    channelAvatar: 'https://api.dicebear.com/7.x/initials/svg?seed=CK',
-    views: '523K просмотров',
-    timestamp: '5 дней назад',
-    thumbnail: 'https://images.unsplash.com/photo-1492691527719-9d1e07e534b4?w=400',
-    duration: '10:11',
-  },
-  {
-    id: '5',
-    title: 'Монтаж видео для начинающих',
-    channel: 'Edit Pro',
-    channelAvatar: 'https://api.dicebear.com/7.x/initials/svg?seed=EP',
-    views: '1.8M просмотров',
-    timestamp: '1 день назад',
-    thumbnail: 'https://images.unsplash.com/photo-1536240478700-b869070f9279?w=400',
-    duration: '20:45',
-  },
-  {
-    id: '6',
-    title: 'Как набрать первую 1000 подписчиков',
-    channel: 'Growth Hacker',
-    channelAvatar: 'https://api.dicebear.com/7.x/initials/svg?seed=GH',
-    views: '3.2M просмотров',
-    timestamp: '2 недели назад',
-    thumbnail: 'https://images.unsplash.com/photo-1611162616305-c69b3fa7fbe0?w=400',
-    duration: '14:30',
-  },
-  {
-    id: '7',
-    title: 'Обзор камер для съемки видео в 2024',
-    channel: 'Tech Reviews',
-    channelAvatar: 'https://api.dicebear.com/7.x/initials/svg?seed=TR',
-    views: '945K просмотров',
-    timestamp: '4 дня назад',
-    thumbnail: 'https://images.unsplash.com/photo-1526498460520-4c246339dccb?w=400',
-    duration: '18:12',
-  },
-  {
-    id: '8',
-    title: 'Лучшие микрофоны для записи подкастов',
-    channel: 'Audio Expert',
-    channelAvatar: 'https://api.dicebear.com/7.x/initials/svg?seed=AE',
-    views: '672K просмотров',
-    timestamp: '1 неделю назад',
-    thumbnail: 'https://images.unsplash.com/photo-1590602847861-f357a9332bbc?w=400',
-    duration: '11:55',
-  },
-];
+const VIDEOS_URL = 'https://functions.poehali.dev/207ed7b1-49f0-4102-9678-274289921ab7';
 
 const categories = ['Все', 'Обучение', 'Технологии', 'Развлечения', 'Музыка', 'Игры', 'Спорт'];
 
+interface Video {
+  id: number;
+  title: string;
+  channel_name: string;
+  channel_avatar: string;
+  views: number;
+  created_at: string;
+  thumbnail_url: string;
+  duration: number;
+}
+
 export default function Home() {
   const [selectedCategory, setSelectedCategory] = useState('Все');
+  const [videos, setVideos] = useState<Video[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchVideos();
+  }, []);
+
+  const fetchVideos = async () => {
+    try {
+      const response = await fetch(VIDEOS_URL);
+      const data = await response.json();
+      setVideos(data.videos || []);
+    } catch (error) {
+      console.error('Error fetching videos:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const formatViews = (views: number) => {
+    if (views >= 1000000) return `${(views / 1000000).toFixed(1)}M просмотров`;
+    if (views >= 1000) return `${(views / 1000).toFixed(0)}K просмотров`;
+    return `${views} просмотров`;
+  };
+
+  const formatTimestamp = (dateString: string) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diff = Math.floor((now.getTime() - date.getTime()) / 1000);
+
+    if (diff < 3600) return `${Math.floor(diff / 60)} минут назад`;
+    if (diff < 86400) return `${Math.floor(diff / 3600)} часов назад`;
+    if (diff < 604800) return `${Math.floor(diff / 86400)} дней назад`;
+    return `${Math.floor(diff / 604800)} недель назад`;
+  };
+
+  const formatDuration = (seconds: number) => {
+    const minutes = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${minutes}:${secs.toString().padStart(2, '0')}`;
+  };
 
   return (
     <div className="animate-fade-in">
@@ -106,11 +77,31 @@ export default function Home() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-        {mockVideos.map((video) => (
-          <VideoCard key={video.id} {...video} />
-        ))}
-      </div>
+      {loading ? (
+        <div className="text-center py-20 text-muted-foreground">
+          Загрузка видео...
+        </div>
+      ) : videos.length === 0 ? (
+        <div className="text-center py-20 text-muted-foreground">
+          Пока нет видео. Загрузите первое видео!
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          {videos.map((video) => (
+            <VideoCard
+              key={video.id}
+              id={video.id.toString()}
+              title={video.title}
+              channel={video.channel_name}
+              channelAvatar={video.channel_avatar || `https://api.dicebear.com/7.x/initials/svg?seed=${video.channel_name}`}
+              views={formatViews(video.views)}
+              timestamp={formatTimestamp(video.created_at)}
+              thumbnail={video.thumbnail_url || 'https://via.placeholder.com/400x225/0EA5E9/ffffff?text=TelTube'}
+              duration={formatDuration(video.duration)}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 }

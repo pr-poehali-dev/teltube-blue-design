@@ -17,13 +17,20 @@ import { useToast } from '@/hooks/use-toast';
 interface UploadVideoDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  userId: number;
+  token: string;
+  onUploadSuccess: () => void;
 }
 
-export default function UploadVideoDialog({ open, onOpenChange }: UploadVideoDialogProps) {
+const UPLOAD_URL = 'https://functions.poehali.dev/4924aa8f-20f4-463b-b187-598decacf3da';
+const VIDEOS_URL = 'https://functions.poehali.dev/207ed7b1-49f0-4102-9678-274289921ab7';
+
+export default function UploadVideoDialog({ open, onOpenChange, userId, token, onUploadSuccess }: UploadVideoDialogProps) {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [thumbnail, setThumbnail] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
   const { toast } = useToast();
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -38,7 +45,7 @@ export default function UploadVideoDialog({ open, onOpenChange }: UploadVideoDia
     }
   };
 
-  const handleUpload = () => {
+  const handleUpload = async () => {
     if (!selectedFile || !title) {
       toast({
         title: 'Ошибка',
@@ -48,16 +55,79 @@ export default function UploadVideoDialog({ open, onOpenChange }: UploadVideoDia
       return;
     }
 
-    toast({
-      title: 'Видео загружается',
-      description: 'Ваше видео будет опубликовано через несколько минут',
-    });
+    setUploading(true);
 
-    setTitle('');
-    setDescription('');
-    setSelectedFile(null);
-    setThumbnail(null);
-    onOpenChange(false);
+    try {
+      const reader = new FileReader();
+      reader.readAsDataURL(selectedFile);
+      
+      reader.onload = async () => {
+        const base64 = (reader.result as string).split(',')[1];
+        
+        const uploadResponse = await fetch(UPLOAD_URL, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Auth-Token': token,
+          },
+          body: JSON.stringify({
+            file: base64,
+            filename: selectedFile.name,
+          }),
+        });
+
+        const uploadData = await uploadResponse.json();
+
+        if (!uploadResponse.ok) {
+          throw new Error(uploadData.error || 'Ошибка загрузки видео');
+        }
+
+        const videoResponse = await fetch(VIDEOS_URL, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Auth-Token': token,
+          },
+          body: JSON.stringify({
+            action: 'create',
+            user_id: userId,
+            title,
+            description,
+            video_url: uploadData.video_url,
+            thumbnail_url: uploadData.thumbnail_url,
+            duration: uploadData.duration,
+          }),
+        });
+
+        if (!videoResponse.ok) {
+          throw new Error('Ошибка сохранения видео');
+        }
+
+        toast({
+          title: 'Готово!',
+          description: 'Видео успешно загружено',
+        });
+
+        setTitle('');
+        setDescription('');
+        setSelectedFile(null);
+        setThumbnail(null);
+        onUploadSuccess();
+        onOpenChange(false);
+      };
+
+      reader.onerror = () => {
+        throw new Error('Ошибка чтения файла');
+      };
+    } catch (error: any) {
+      toast({
+        title: 'Ошибка',
+        description: error.message,
+        variant: 'destructive',
+      });
+    } finally {
+      setUploading(false);
+    }
   };
 
   return (
@@ -153,9 +223,9 @@ export default function UploadVideoDialog({ open, onOpenChange }: UploadVideoDia
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Отмена
           </Button>
-          <Button onClick={handleUpload}>
+          <Button onClick={handleUpload} disabled={uploading}>
             <Icon name="Upload" size={18} className="mr-2" />
-            Опубликовать
+            {uploading ? 'Загрузка...' : 'Опубликовать'}
           </Button>
         </DialogFooter>
       </DialogContent>

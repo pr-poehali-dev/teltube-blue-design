@@ -8,33 +8,43 @@ import UploadVideoDialog from '@/components/UploadVideoDialog';
 import { Button } from '@/components/ui/button';
 import Icon from '@/components/ui/icon';
 import { initGoogleAuth, loginWithGoogle, logout, saveUser, loadUser, User } from '@/lib/auth';
+import AuthDialog from '@/components/AuthDialog';
 
 export default function Index() {
   const [activeSection, setActiveSection] = useState('home');
   const [searchQuery, setSearchQuery] = useState('');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
-  const [user, setUser] = useState<User | null>(null);
+  const [authDialogOpen, setAuthDialogOpen] = useState(false);
+  const [user, setUser] = useState<any>(null);
+  const [token, setToken] = useState<string>('');
 
   useEffect(() => {
-    const savedUser = loadUser();
-    if (savedUser) {
-      setUser(savedUser);
+    const savedUser = localStorage.getItem('teltube_user');
+    const savedToken = localStorage.getItem('teltube_token');
+    
+    if (savedUser && savedToken) {
+      setUser(JSON.parse(savedUser));
+      setToken(savedToken);
     }
-
-    initGoogleAuth((loggedInUser) => {
-      setUser(loggedInUser);
-      saveUser(loggedInUser);
-    });
   }, []);
 
   const handleLogin = () => {
-    loginWithGoogle();
+    setAuthDialogOpen(true);
+  };
+
+  const handleAuthSuccess = (user: any, token: string) => {
+    setUser(user);
+    setToken(token);
+    localStorage.setItem('teltube_user', JSON.stringify(user));
+    localStorage.setItem('teltube_token', token);
   };
 
   const handleLogout = () => {
-    logout();
     setUser(null);
+    setToken('');
+    localStorage.removeItem('teltube_user');
+    localStorage.removeItem('teltube_token');
   };
 
   const renderContent = () => {
@@ -107,7 +117,7 @@ export default function Index() {
         </div>
       </main>
 
-      {user && (
+      {user && token && (
         <Button
           size="lg"
           className="fixed bottom-6 right-6 rounded-full shadow-lg gap-2"
@@ -136,6 +146,15 @@ export default function Index() {
       <UploadVideoDialog
         open={uploadDialogOpen}
         onOpenChange={setUploadDialogOpen}
+        userId={user?.id || 0}
+        token={token}
+        onUploadSuccess={() => window.location.reload()}
+      />
+
+      <AuthDialog
+        open={authDialogOpen}
+        onOpenChange={setAuthDialogOpen}
+        onSuccess={handleAuthSuccess}
       />
     </div>
   );
