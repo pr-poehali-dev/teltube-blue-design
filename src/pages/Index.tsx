@@ -1,13 +1,41 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Header from '@/components/Header';
 import Sidebar from '@/components/Sidebar';
 import Home from '@/pages/Home';
 import VideoPlayer from '@/pages/VideoPlayer';
 import Channel from '@/pages/Channel';
+import UploadVideoDialog from '@/components/UploadVideoDialog';
+import { Button } from '@/components/ui/button';
+import Icon from '@/components/ui/icon';
+import { initGoogleAuth, loginWithGoogle, logout, saveUser, loadUser, User } from '@/lib/auth';
 
 export default function Index() {
   const [activeSection, setActiveSection] = useState('home');
   const [searchQuery, setSearchQuery] = useState('');
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
+  const [user, setUser] = useState<User | null>(null);
+
+  useEffect(() => {
+    const savedUser = loadUser();
+    if (savedUser) {
+      setUser(savedUser);
+    }
+
+    initGoogleAuth((loggedInUser) => {
+      setUser(loggedInUser);
+      saveUser(loggedInUser);
+    });
+  }, []);
+
+  const handleLogin = () => {
+    loginWithGoogle();
+  };
+
+  const handleLogout = () => {
+    logout();
+    setUser(null);
+  };
 
   const renderContent = () => {
     switch (activeSection) {
@@ -59,16 +87,38 @@ export default function Index() {
 
   return (
     <div className="min-h-screen bg-background">
-      <Header onSearch={setSearchQuery} />
-      <Sidebar activeSection={activeSection} onSectionChange={setActiveSection} />
+      <Header 
+        onSearch={setSearchQuery}
+        onMenuClick={() => setSidebarOpen(!sidebarOpen)}
+        user={user}
+        onLogin={handleLogin}
+        onLogout={handleLogout}
+      />
+      <Sidebar 
+        activeSection={activeSection} 
+        onSectionChange={setActiveSection}
+        isOpen={sidebarOpen}
+        onToggle={() => setSidebarOpen(!sidebarOpen)}
+      />
       
-      <main className="ml-64 mt-16 p-6">
+      <main className="lg:ml-64 mt-16 p-6">
         <div className="max-w-[1800px] mx-auto">
           {renderContent()}
         </div>
       </main>
 
-      <div className="fixed bottom-6 right-6 flex gap-2 bg-card border border-border rounded-lg p-2 shadow-lg">
+      {user && (
+        <Button
+          size="lg"
+          className="fixed bottom-6 right-6 rounded-full shadow-lg gap-2"
+          onClick={() => setUploadDialogOpen(true)}
+        >
+          <Icon name="Upload" size={20} />
+          Загрузить видео
+        </Button>
+      )}
+
+      <div className="fixed bottom-6 left-6 flex gap-2 bg-card border border-border rounded-lg p-2 shadow-lg">
         <button
           onClick={() => setActiveSection('video')}
           className="px-3 py-1.5 text-xs bg-primary text-primary-foreground rounded hover:bg-primary/90 transition-colors"
@@ -82,6 +132,11 @@ export default function Index() {
           Канал
         </button>
       </div>
+
+      <UploadVideoDialog
+        open={uploadDialogOpen}
+        onOpenChange={setUploadDialogOpen}
+      />
     </div>
   );
 }
